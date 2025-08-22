@@ -1,0 +1,373 @@
+---
+title: "Decoding Popularity: A Data-Driven Analysis of Hit Songs on Spotify"
+author: "Uchenna Ekeh, Lauren Ellis, Orhan Gozutok, and Ava Meissner"
+date: "May 2024"
+output:
+  word_document: default
+  html_document: default
+---
+
+# Introduction
+
+  In the dynamic landscape of the music industry, achieving success requires a comprehensive understanding of the intricate elements that contribute to a song's popularity. Artists, songwriters, and record labels alike are continuously challenged to decipher the formula that distinguishes a hit song from the vast array of musical compositions. This pursuit is fueled by the inherent variability observed among songs within the top music charts, prompting a fundamental question: What constitutes a hit song? Our endeavor is to delve into this inquiry and leverage analysis of recent hit songs as a means to unearth invaluable insights and discern recurring patterns. By analyzing the characteristics of successful compositions, we endeavor to unravel the web of factors that wield influence over music popularity. Through this examination, we aspire to shed light on the determinants of musical success and form recommendations for those in the music industry to create and release a hit song.    
+  The dataset for our project is  a comprehensive list on Kaggle of nine hundred and forty-three of the most famous songs of 2023 as listed on Spotify, using the charts system. There are twenty-four variables in total. Six specify details of the song including track name, artist name(s), artist count, release year, release month, and release day. Eight quantitative variables denote the track’s success on streaming platforms with number of streams on Spotify as well as number of playlists the song is in, and presence and rank of the song on top charts for Apple Music, Spotify, Deezer, and Shazam. The remaining variables are audio features. Mode of song (major or minor) and key are qualitative. Beats per minute, danceability percentage, valence percentage, energy percentage, acoustic percentage, instrumental content percentage, liveliness percentage, and speech percentage are all quantitative and measured by Spotify’s audio intelligence.   
+
+
+
+## Data Cleaning
+```{r}
+library(dplyr)
+library(tidyverse)
+library(ggcorrplot)
+library(tree)
+library(randomForest)
+spotify <- read.csv("spotify-2023.csv")
+spotify$streams <- as.numeric(spotify$streams)
+spotify$numeric_key <- as.numeric(factor(spotify$key))
+spotify$in_shazam_charts  <- as.numeric(spotify$in_shazam_charts)
+spotify$in_deezer_playlists  <- as.numeric(spotify$in_deezer_playlists)
+spotify<- na.omit(spotify)
+summary(spotify)
+```
+
+
+	In the cleaning of the data, the variables of streams, in_shazam_charts, and in_deezer_playlists were converted to numeric variables as they were previously not. The categorical variable of key was assigned to factor values for efficiency in later modeling. Lastly, all null values were omitted from the dataset.   	
+
+
+## Data Exploration
+
+
+	To start, we conducted exploratory analysis to look at some trends amongst the variables.
+
+
+```{r}
+top_artists <- spotify %>%
+  count(artist.s._name) %>%
+  top_n(20, n)
+
+top_artists <- top_artists %>%
+ rename(artist = artist.s._name) %>%
+ arrange(desc(n))
+
+
+top_artists$artist <- factor(top_artists$artist, levels = rev(top_artists$artist))
+
+
+top_artists %>%
+ ggplot(aes(artist, n)) +
+ geom_bar(stat = "identity", fill = "skyblue", width = .9) +
+ geom_text(aes(label = n), vjust = 0, size = 3) +
+ theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+ labs(x = "Artist", y = "Count", title = "Top 20 Artists by Song Count")
+
+```
+
+
+  We identified the top twenty artists based on their frequency of appearances on the music charts to identify which artists are most popular among listeners on Spotify and are able to consistently perform well and maintain chart presence. We found that Taylor Swift is the most popular artist, followed by Bad Bunny and SZA. The artist name variable had frequent errors and special characters that R did not recognize. We attempted to replace these characters with underscores, but could not get the transformation to work correctly across the entire dataset. As a result, we excluded the artist name variable from our analysis.
+
+
+```{r}
+spotify2 <- subset(spotify, select = -c(track_name, artist.s._name, in_apple_playlists, in_apple_charts, in_deezer_playlists, in_deezer_charts, in_shazam_charts, key, in_spotify_charts, released_day, released_year))
+numeric <-  spotify2[,unlist(lapply(spotify2, is.numeric))]
+cor <- cor(numeric)
+ggcorrplot(cor)
+```
+
+  We generated a correlation heatmap for the numeric variables of interest in our linear modeling. The majority of correlations were relatively weak.
+
+
+```{r}
+key_streams <- subset(spotify, !is.na(key), select = c(key, streams))
+key_streams <- na.omit(key_streams)
+
+
+ggplot(key_streams, aes(x = factor(key), y = streams)) +
+  geom_boxplot(fill = "skyblue") +
+  ylim(0, 1500000000)
+  labs(x = "Key", y = "Streams", title = "Distribution of Streams by Key")
+```
+
+
+  We were curious to investigate potential variation in stream counts across different keys. We observed slight fluctuations in the medians of the distributions as we limited the y-axis more. We conducted an analysis of variance test, yielding a p-value of 0.668. This indicates that, within the scope of our analysis, there is insufficient evidence to suggest significant differences in stream counts across different keys.
+
+
+
+## Considered Approaches
+	
+Initially, we considered creating a logistic regression model to predict a song’s virality prior to normalizing the data. Our idea was that logistic regression is a suitable method for binary classification tasks, like predicting whether a song will go viral or not. However, a logistic regression model is influenced by the distribution of the response variable, and we discovered the high variability of streams in our preliminary analysis. Even with normalization, our target variable streams would not have the balanced distribution between positive and negative classes that is needed for logistic regression. All of the songs in our dataset hit the charts and thus are considered “viral” to some extent, which may lead to struggles for our model to discern between viral and non-viral songs and reducing model performance.   
+  One of the algorithms we were interested in was K-NN. Initially, we hypothesized that the K-Nearest Neighbors (KNN) method might be a good fit for our data, given its ability to capture complex patterns and its success in various classification and regression tasks, especially when dealing with multi-dimensional feature spaces like ours. There are several considerations when using k-NN for this type of data:
+
+
+- Scalability: k-NN can be computationally expensive, especially for large datasets. This is because the algorithm needs to compute the distance between each test data point and every training data point, which can be time-consuming.
+- Choice of k: The choice of the parameter "k" is crucial in the k-NN algorithm. A smaller "k" value can lead to noisy predictions, as outliers might influence the algorithm. On the other hand, a larger value of "k" can lead to smoother decision boundaries but might also cause the algorithm to lose local patterns in the data.
+- Sensitivity to Outliers: k-NN can be sensitive to outliers in the data, which can significantly affect its performance and was particularly relevant to our data as there were some drastic outliers in the data.
+In the context of music popularity prediction, several studies have used other machine learning methods and found them to be effective. For example, a study by Arora & Rani (2024) used Linear Regression, Lasso Regression, Ridge Regression, Elastic Net, Random Forest, GBM, and neural networks to predict whether a song will be a hit. Another study by Sebastian, Jung, & Mayer (2024) used Ordinary Least Squares (OLS), Multivariate Adaptive Regression Splines (MARS), Random Forest, and XGBoost algorithms to analyze song characteristics and their impact on popularity. These studies suggest that other methods may be more suitable for this type of data due to their ability to handle high-dimensional data, deal with noise and outliers, and model complex relationships.
+	Before conducting the literature review, we attempted to apply the K-Nearest Neighbors (KNN) method to our dataset. However, despite adjusting the parameters, we encountered high Mean Squared Error (MSE) values. The literature review subsequently suggested the use of alternative methods. Given these circumstances, we decided to discontinue using the KNN method for our analysis.  
+
+
+# Previous Music Analyses and Methods
+
+
+- "Songs with more artists are generally more popular": A study published in the Journal of Marketing Behavior found that songs featuring other artists have a greater likelihood of making it into the top 10 than songs not featuring other artists (Ordanini, Nunes, & Valsesia, 2018). This study used a dataset of 26,000 songs from the Billboard Hot 100 chart from 1990 to 2010. They used regression analysis to examine the relationship between the number of featured artists and a song's chart performance. Another study conducted by Stanford University suggested that the presence of guest artists improved the popularity of a track, but not with the same degree of significance (Pham, Kyauk, & Park, 2015). This study used a dataset of over 380,000 songs and used machine learning algorithms to predict song popularity.   
+- Song release season and popularity "correlation": While there is a common belief that songs released towards the summer (summer hits) tend to be more popular, we couldn'’ find a study that confirmed this. However, a study published on Medium suggested that the duration of songs has been decreasing over the years, and this trend coincides with the increasing importance of AI metrics and personalized recommendations, which could indirectly influence the seasonal popularity of songs (Parth, 2021). This study used descriptive statistics and data visualization to analyze trends in song duration over time.   
+- Effect of Release Day on Popularity: The choice of release day can have an impact on a song's visibility and streams. While there are no specific studies on this topic, it's generally accepted in the music industry that releasing a song on a day other than Friday might help it stand out from the crowd and get more attention (Lee & Lee, 2018). This study used a dataset of over 50,000 songs from the Melon music streaming service. They used machine learning algorithms, including decision trees and random forests, to predict song popularity based on various features, including release day.   
+
+
+# Methods and Analysis
+  We intend to predict streams based on various song attributes, thus we opted for a supervised learning approach. Our response variable of interest, streams, is continuous, therefore we chose to conduct regression analysis to predict the virality of songs based on several song attributes in an efficient and interpretable way. Based on our own analysis goals and the methods of previous analysts, we opted to try various methods—linear regression, decision trees, and random forests—to derive the strongest conclusions and find the most effective model for our dataset.    
+
+  A new dataframe was created for the cleaned data that eliminated unnecessary variables. Key was converted from a categorical to a factor variable due to the multitude of levels. Because the categorical variables of artists_name and track_name had an extensive number of levels, they were omitted from the lasso and ridge regression. Additionally, variables that were not of interest for our analysis were excluded—including variables relating to songs being in the Deezer, Shazam, Apple, and Spotify charts and playlists as well as the date metrics of release year and release day of month.    
+
+
+```{r}
+# Make new
+library(car)
+spotify_new <- subset(spotify, select = -c(track_name, artist.s._name, streams, in_apple_playlists, in_apple_charts, in_deezer_playlists, in_deezer_charts, in_shazam_charts, key, in_spotify_charts, released_day, released_year)) # Remove unneeded variables
+```
+
+
+## Decision trees
+  We attempted a decision tree to find the most optimal weight for each predictor to accurately predict the number of streams a song would get, and which predictors proved to be most optimal for finding the number of streams a song would get. We started with a conservative approach toward the decision tree, keeping the default values of best =5 and running the function. Overall, we gained an MSE of 478.45, which was very high. In an attempt to minimize this MSE, we attempted pruning by cross validating and plotting the cv error to find the optimal number of terminal nodes to have in our model to gain the lowest MSE while maintaining an aesthetically pleasing tree. The plot revealed that 4 may be the optimal amount of terminal nodes to use in the decision tree. We later ran the decision tree function with best = 4. The resulting MSE of the pruned tree was 475.4. It was clear that the decision tree had far too high of an MSE to be used in our final analysis towards the project. Reasons for this may be due to our model underfitting our data and therefore increasing the bias in our predictions.
+
+```{r}
+set.seed(1)
+# Normalize streams
+library(MASS)
+b <- boxcox(lm(streams ~ 1, data = spotify))
+# Extract lambda
+lambda <- b$x[which.max(b$y)]
+lambda
+spotify$norm_streams <- (spotify$streams ^ lambda - 1) / lambda
+spotify_new <-  spotify[,unlist(lapply(spotify, is.numeric))]
+train <- sample(1:nrow(spotify_new), nrow(spotify_new) / 2)
+tree.spotify <-tree(norm_streams ~., data = spotify_new, subset = train) #smaller tree
+#, control = tree.control(nobs = length(train), mindev = 0) for big tree
+summary(tree.spotify)
+plot(tree.spotify, cex.lab = 0.8)
+text(tree.spotify, pretty = 0)
+#cross validation
+cv.spotify <- cv.tree(tree.spotify)
+plot(cv.spotify$size, cv.spotify$dev, type = "b")
+#our attempt at pruning
+prune.spotify <- prune.tree(tree.spotify, best = 5)
+plot(prune.spotify)
+text(prune.spotify, pretty = 0)
+yhat <- predict(tree.spotify, newdata = spotify_new[-train,])
+spotify.test <- spotify_new[-train, "norm_streams"]
+plot(yhat, spotify.test)
+abline(0,1)
+mean((yhat- spotify.test)^2)
+```
+
+## Random forest
+Upon getting a very high MSE from our decision tree, we made an effort to see if we could create a random forest to account for our high number of variables. We ran the random forest with a variety of mtry values and our best performance was with an mtry = 5. Our resulting error was 423.39. With our error still being very high, our curiosity led us to check the importance of the variables used for these tests. Our results of the importance showed the overwhelming amplifier of our MSE to be in_spotify_playlists. In an attempt to find a better MSE, we ran the decision tree without the in_spotify_playlists variable and received an MSE of 1161. At this point we realized that the MSE would be high for our data regardless if done with a random forest tree. Reasons for our random forest performance performing poorly can be linked to our data not being linear. 
+
+
+```{r}
+set.seed(1)
+rf.spotify <- randomForest(norm_streams ~ ., data = spotify_new, subset = train, mtry = 5, importance = TRUE)
+yhat.rf <-predict(rf.spotify, newdata = spotify_new[-train, ])
+mean((yhat.rf- spotify.test)^2)
+importance(rf.spotify)
+```
+
+## Linear Regression Analysis 
+	In order to conduct multiple linear regression, variable transformation was done to normalize the data that failed to meet linear assumptions. Utilizing the boxcox() function, a lambda value was found to transform the streams variable. Upon the transformation, a preliminary model was used to confirm that the transformation improved the diagnostics and the residual standard error was greatly reduced with the utilization of a normalized response variable.    
+```{r}
+mod <- lm(norm_streams ~ bpm + danceability_. + liveness_. + acousticness_. + valence_. + energy_. + instrumentalness_. + speechiness_., data = spotify)
+summary(mod)
+plot(mod)
+```
+
+## Shrinkage Methods
+
+  Both LASSO and ridge regression were conducted to compare their outcomes and determine if the true model is non-sparse and most of the true coefficients are not zero. Ridge regression is effective in reducing multicollinearity and preventing overfitting by shrinking the coefficients while LASSO additionally performing variable selection, making the model simpler and more interpretable. Which technique to use depends on the specific characteristics of the data and the goals of the analysis; thus, both were conducted to determine the better shrinkage method.   
+
+
+```{r}
+# LASSO
+library(glmnet)
+library(dplyr)
+set.seed(8)
+samp <- sample(seq_len(nrow(spotify_new)),  size = 0.75*nrow(spotify_new))
+train <- spotify_new[samp,]
+test <- spotify_new[-samp,]
+xtrain <- model.matrix(norm_streams~., data=train)[,-1]
+ytrain <- train$norm_streams
+xtest <-model.matrix(norm_streams~., data=test)[,-1]
+ytest <- test$norm_streams
+lasso <- glmnet(xtrain, ytrain, alpha=1)
+cv.lasso <- cv.glmnet(xtrain, ytrain,alpha=1)
+plot(cv.lasso)
+bestlam <- cv.lasso$lambda.min
+lasso.pred <- predict(lasso ,s=bestlam ,newx=xtest)
+lasso.err <- mean((lasso.pred - ytest)^2)
+lasso.err
+predict(lasso, type = "coefficients", s = bestlam)
+```
+```{r}
+# Ridge Regression
+set.seed(8)
+xtrain <- model.matrix(norm_streams~., data=train[,-1])
+ytrain <- train$norm_streams
+ridge <- glmnet(xtrain,ytrain,alpha=0)
+cvridge <- cv.glmnet(xtrain,ytrain,alpha=0)
+plot(cvridge)
+# Best lambda
+bestlam <- cvridge$lambda.min
+ridgepred <- predict(ridge, s = bestlam, newx = xtest)
+ridge.error <- mean((ridgepred - ytest)^2)
+ridge.error
+predict(ridge, type = "coefficients", s = bestlam) # Final model
+```
+
+
+
+  LASSO had a lower test mean squared error (MSE) than ridge regression; ergo, LASSO outperformed ridge regression and subset selection was determined to be preferable given the data. Because of this, we additionally conducted best, forward, and backward subset selection to evaluate the best variables to keep in the model.
+
+
+
+## Subset Selection
+
+
+### Best Subset Selection
+
+
+```{r}
+# Best Subset Selection
+library(leaps)
+set.seed(8)
+regfit.full = regsubsets(norm_streams~., spotify_new, nvmax=13)
+regfit.sum <- summary(regfit.full)
+which.min(regfit.sum$cp)
+which.min(regfit.sum$bic)
+which.max(regfit.sum$adjr2)
+coef(regfit.full, 5) # Check five-variable mod
+```
+
+
+Best subset selection indicated that the five variable, three variable, and six variable models had the lowest Cp, lowest BIC, and highest adjusted R-squared value.   
+```{r}
+set.seed(1)
+# Validation Set Approach
+train = sample(c(TRUE,FALSE), nrow(spotify_new),rep=TRUE)
+test =(! train )
+# return all the models, up to a 13-variable model
+regfit.best = regsubsets(norm_streams~., spotify_new[train,], nvmax=13)
+test.mat = model.matrix(norm_streams~., spotify_new[test,])
+val.errors = rep(NA,13)
+
+
+for (i in 1:13){
+        coefi = coef(regfit.best, id=i)
+        pred = test.mat[,names(coefi)]%*%coefi
+        val.errors[i] = mean((spotify_new$norm_streams[test]-pred)^2)
+}
+i <- which.min(val.errors)
+coef(regfit.best, i)
+```
+
+
+The validation set approach additionally selected the three variable model with artist_count, released_month, and in_spotify_playlists. 
+
+### Forward Selection
+
+
+```{r}
+#Forward Stepwise Selection
+library(leaps)
+# Return all the models, up to a 13-variable model
+set.seed(8)
+forward.mod = regsubsets(norm_streams~., spotify_new, nvmax=13, method="forward")
+#Output the best set of variables for each model size
+forward.sum <- summary(forward.mod)
+which.min(forward.sum$cp)
+which.min(forward.sum$bic)
+which.max(forward.sum$adjr2)
+coef(forward.mod, 3) # Check 3-variable mod
+```
+
+
+Forward selection produced similar five variable, three variable, and six variable models, with the first three variables selected being artist_count, released_month, and in_spotify_playlists.    
+
+
+### Backward Selection
+
+
+```{r}
+# Backward Stepwise Selection
+# return all the models, up to a 13-variable model
+set.seed(1)
+backward.mod = regsubsets(norm_streams~., spotify_new, nvmax=13, method="backward")
+backward.sum <- summary(backward.mod)
+which.min(backward.sum$cp)
+which.min(backward.sum$bic)
+which.max(backward.sum$adjr2)
+coef(backward.mod, 6) # Check six-variable mod
+```
+
+Backward selection reaffirmed the outcomes of the other selection methods. Because of the similar results, we opted to construct and compare a three variable, five variable, and six variable model as well as a model based upon the LASSO regression.   
+
+
+```{r}
+# LASSO Model
+lasso_mod <- lm(norm_streams ~ artist_count + released_month + in_spotify_playlists + speechiness_. + bpm + danceability_. + liveness_., data = spotify)
+summary(lasso_mod)
+```
+
+
+```{r}
+# Three variable model
+three_var_mod <- lm(norm_streams ~ artist_count + released_month + in_spotify_playlists, data = spotify)
+summary(three_var_mod)
+```
+
+
+```{r}
+# Five variable model
+five_var_mod <- lm(norm_streams ~ artist_count + released_month + in_spotify_playlists + speechiness_. + danceability_., data = spotify)
+summary(five_var_mod)
+```
+
+
+```{r}
+# Six variable model
+six_var_mod <- lm(norm_streams ~ artist_count + released_month + in_spotify_playlists + speechiness_. + danceability_. + bpm, data = spotify)
+summary(six_var_mod)
+```
+
+
+  After comparing the three variable, five variable, six variable, and LASSO models, the six variable model had the lowest residual standard error and the highest adjusted R-squared value overall. The best model determined via several selection models gave insight into what aspects of songs influence their success. When it comes to audio features, our analysis indicates that speechiness and danceability hold the greatest significance in influencing streams. An increase in speechiness results in a decrease in streams. Ergo, more verbose songs are less likely to accrue more streams than songs with less lyrics. Danceability, on the other hand, has a positive effect on streams. Songs with greater danceability–strong and consistent rhythm and beat, faster tempo, and dynamic shifts within the songs—have a greater number of streams. Additionally, artist count has an unexpected negative impact on streams, indicating that artist collaboration and an increase in features on tracks does not increase streams. Songs present in more playlists also have greater streams. Lastly, songs released later in the year also have greater streams. The adjusted R-square of .4952 shows that the variables included within the best model jointly account for 49.52% of variation in streams; ergo, the variables within the model account for less than half of the variation in streams which does not indicate that they are particularly strong predictors of music success despite their statistically significant effects on streams. This entails that linear modeling is not the optimal course of action for analysis of variables influencing streams.   
+
+
+```{r}
+hist(spotify_new$norm_streams)
+res = rstandard(six_var_mod)
+qqnorm(res)
+qqline(res, col="red")
+plot(fitted(six_var_mod), resid(six_var_mod))
+```
+  As seen in the residual plot, the response variable of streams primarily clusters around the horizontal axis but exhibits a downward trend, displaying a pattern where the residuals tend to be larger for observations with higher fitted values of predicted stream counts. This pattern suggests that the model may be systematically overestimating the number of streams for songs with lower predicted values and underestimating for songs with higher predicted values. This likely relates to outliers that draw in abnormally high streams such as top artists in the music industry or low streams from more underground artists. The quantile-quantile plot primarily follows the normal line with the left tail of the plot extending further downwards than the right tail, suggesting that there is an excess of lower values in the data compared to what would be expected in a normal distribution. This indicates that the left tail of the distribution is heavier or longer than that of a normal distribution. Conversely, the right tail going slightly above the line implies that an excess of higher values exist in the data compared to a normal distribution. The histogram of the response variable follows a normal distribution, which is due to the earlier transformation of the variable.   
+
+
+## Main findings, recommendations, and conclusions
+
+  Due to our response variable, streams, being normalized, we cannot interpret our resulting coefficients as the exact increase or decrease associated with a one-unit change in a predictor variable. Instead, we can generalize the effects of each variable depending on if the coefficient was negative or positive. The six-variable model emerged as the most effective in predicting stream counts, with speechiness, danceability, artist count, playlist presence, release timing, and bpm being significant predictors. Speechiness and danceability had the most substantial influence, with higher speechiness associated with decreased streams and greater danceability correlated with increased streams. Surprisingly, an increase in the number of artists in a song had a negative impact on stream counts. This suggests that while artist collaboration is common, it does not necessarily translate to increased popularity. Songs featured in more playlists and those released later in the year tended to have higher stream counts. This underscores the that playlist inclusion is important. Despite the significant effects observed, the adjusted R-squared value of 0.4952 indicates that the variables included in the model collectively account for less than half of the variation in stream counts. This suggests that while the model provides valuable insights, other factors not considered in the analysis likely also influence stream counts.
+  Further research is required to explore the impact of additional variables on stream counts. Expanding the scope to a larger dataset with data from more years present may reveal insights into the trends of music consumption and listener preferences over time. We recommend investigating the impacts of genre to gain insights into the preferences of listeners. We also hypothesize that artist popularity has a significant effect on the chart performance of a song after release. Furthermore, interaction effects between variables could uncover how the audio variables interact and influence stream counts. The last topic of interest would be investigating the duration of a song on the charts, and analyzing how long-term success correlates with various audio features. 
+
+## Relevant references
+-  Dataset: https://www.kaggle.com/datasets/nelgiriyewithana/top-spotify-songs-2023
+- Lee, J., & Lee, J. S. (2018). Music Popularity: Metrics, Characteristics, and Audio-based Prediction. IEEE Transactions on Multimedia, 20(12), 3213-3224. Retrieved from https://arxiv.org/abs/1812.0055
+- Parth (2021). Duration of songs: How did the trend change over time and what does it mean today? Medium. Retrieved from https://parthmusic.medium.com/duration-of-songs-how-did-the-trend-change-over-time-and-what-does-it-mean-today-a41258a41b12.
+- Pham, J., Kyauk, E., & Park, E. (2015). Predicting Song Popularity. Stanford University. Retrieved from https://cs229.stanford.edu/proj2015/140_report.pdf
+- Ordanini, A., Nunes, J. C., & Valsesia, F. (2018). The featuring phenomenon in music: how combining artists of different genres increases a song’s popularity. Journal of Marketing Behavior, 3(2-3), 123-141. Retrieved from https://link.springer.com/article/10.1007/s11002-018-9476-3
+- AspiringYouths. (n.d.). Advantages and Disadvantages of KNN Algorithm. Retrieved from https://aspiringyouths.com/advantages-and-disadvantages-of-knn-algorithm/
+- GeeksforGeeks. (2024, March 12). KNN vs Decision Tree in Machine Learning. Retrieved from https://www.geeksforgeeks.org/knn-vs-decision-tree-in-machine-learning/
+- GeeksforGeeks. (n.d.). K-Nearest Neighbor(KNN) Algorithm - GeeksforGeeks. Retrieved from https://www.geeksforgeeks.org/k-nearest-neighbours/
+- Spotintelligence. (2023, August 22). K-Nearest Neighbours Explained, Practical Guide & How To Tutorial. Retrieved from https://spotintelligence.com/2023/08/22/k-nearest-neighbours-explained-practical-guide-how-to-tutorial/
+- Thomas, N. (2020, May 9). Using k-nearest neighbours to predict the genre of Spotify tracks. Retrieved from https://towardsdatascience.com/using-k-nearest-neighbours-to-predict-the-genre-of-spotify-tracks-5e7eb6f28e3
+- Sebastian, N., Jung, F., & Mayer, F. (2024). Beyond Beats: A Recipe to Song Popularity? A machine learning approach. Retrieved from https://arxiv.org/abs/2104.07670
+- Arora, S., & Rani, R. (2024). Soundtrack Success: Unveiling Song Popularity Patterns Using Machine Learning Implementation. Retrieved from https://link.springer.com/chapter/10.1007/978-981-15-3380-8_11
+
+
+
