@@ -1,6 +1,6 @@
 ---
 title: "Decoding Popularity: A Data-Driven Analysis of Hit Songs on Spotify"
-author: "Uchenna Ekeh, Lauren Ellis, Orhan Gozutok, and Ava Meissner"
+author: "Ava Meissner, Uchenna Ekeh, Lauren Ellis, and Orhan Gozutok"
 date: "May 2024"
 output:
   word_document: default
