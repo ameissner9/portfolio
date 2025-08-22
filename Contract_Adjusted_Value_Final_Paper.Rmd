@@ -1,0 +1,425 @@
+---
+title: "Final Contract Adjusted Value Paper"
+author: "Ian Perez, Sophia Rojas, Ava Meissner, & Sam Swift"
+date: "2024-05-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#Load pff, epa, and qbr data
+pff_2023 <- read.csv('passing_summary.csv')
+elo_2023 <- read.csv('QbsQbrEpa2023.csv')
+
+```
+
+
+```{r}
+# select important columns
+elo_2023_clean <- elo_2023 [ ,c("qb", "season", "games_started", "team", "qb_plays", "int", "td", "passing_yards", "sacks", "yards_p_att", "td_rate", "int_rate", "comp_pct", "adot", "cpoe", "total_epa", "avg_epa", "succsess_rate", "qbr_total") ]
+
+
+```
+
+
+```{r}
+# filter out players who have played fewer than 20% of the max quarterback snaps in 2023
+elo_2023_max_snap <- max(elo_2023_clean$qb_plays, na.rm = TRUE)
+elo_2023_max_snap
+elo_2023_20snaps <- 0.2*elo_2023_max_snap
+elo_2023_20snaps
+
+pff_2023_max_snap <- max(pff_2023$dropbacks, na.rm = TRUE)
+pff_2023_max_snap
+pff_2023_20snaps <- 0.2*pff_2023_max_snap
+pff_2023_20snaps
+
+```
+
+```{r}
+#implement a 20% snap minimum (relative to the QB with the most drop backs)
+snap_min_elo23 <- which(elo_2023_clean$qb_plays > elo_2023_20snaps)
+snap_min_pff23 <- which(pff_2023$dropbacks > pff_2023_20snaps)
+
+
+elo_2023_clean <- elo_2023_clean[snap_min_elo23, ]
+
+pff_2023 <- pff_2023[snap_min_pff23, ]
+```
+
+
+```{r}
+# Add missing QBR values to some quarterbacks within our data
+elo_2023_clean$qbr_total[elo_2023_clean$qb == "Daniel Jones" & is.na(elo_2023_clean$qbr_total)] <- 36.3
+elo_2023_clean$qbr_total[elo_2023_clean$qb == "C.J. Stroud" & is.na(elo_2023_clean$qbr_total)] <- 57.5
+elo_2023_clean$qbr_total[elo_2023_clean$qb == "Deshaun Watson" & is.na(elo_2023_clean$qbr_total)] <- 42.9
+elo_2023_clean$qbr_total[elo_2023_clean$qb == "Joe Flacco" & is.na(elo_2023_clean$qbr_total)] <- 48.3
+elo_2023_clean$qbr_total[elo_2023_clean$qb == "Will Levis" & is.na(elo_2023_clean$qbr_total)] <- 33.2
+elo_2023_clean$qbr_total[elo_2023_clean$qb == "Bryce Young" & is.na(elo_2023_clean$qbr_total)] <- 33.4
+elo_2023_clean$qbr_total[elo_2023_clean$qb == "Jimmy Garoppolo" & is.na(elo_2023_clean$qbr_total)] <- 33.9
+elo_2023_clean$qbr_total[elo_2023_clean$qb == "Aidan O'Connell" & is.na(elo_2023_clean$qbr_total)] <- 40.5
+elo_2023_clean$qbr_total[elo_2023_clean$qb == "Tommy DeVito" & is.na(elo_2023_clean$qbr_total)] <- 23.7
+elo_2023_clean$qbr_total[elo_2023_clean$qb == "Nick Mullens" & is.na(elo_2023_clean$qbr_total)] <- 49.8
+elo_2023_clean$qbr_total[elo_2023_clean$qb == "Tyrod Taylor" & is.na(elo_2023_clean$qbr_total)] <- 47.7
+elo_2023_clean$qbr_total[elo_2023_clean$qb == "Easton Stick" & is.na(elo_2023_clean$qbr_total)] <- 51.0
+elo_2023_clean$qbr_total[elo_2023_clean$qb == "Bailey Zappe" & is.na(elo_2023_clean$qbr_total)] <- 23.3
+elo_2023_clean$qbr_total[elo_2023_clean$qb == "Taylor Heinicke" & is.na(elo_2023_clean$qbr_total)] <- 47.7
+
+```
+
+```{r}
+# combine datasets 
+qbs_2023 <- merge(elo_2023_clean, pff_2023, by.x = "qb", by.y = "player")
+
+qbs_2023 <- na.omit(qbs_2023)
+```
+
+
+```{r}
+# import consensus rankings
+qbr_rank <- read.csv('2023_qbr_rank.csv')
+qbr_rank <- na.omit(qbr_rank)
+
+consensus <- merge(qbs_2023, qbr_rank, by.x = "qb", by.y = "Player") 
+```
+
+
+```{r}
+# Read salary data
+qb_money_23 <- read.csv('qb_money_2023.csv')
+
+# remove NA columns
+qb_money_23 <- qb_money_23[, colSums(is.na(qb_money_23)) < nrow(qb_money_23)]
+```
+
+
+```{r}
+# merge qb money with qb stats
+qbs_2023_final <-  merge(qbs_2023, qb_money_23, by.x = "qb", by.y = "PLAYER")
+
+# drop unneeded columns
+qbs_2023_final <- qbs_2023_final[, -which(names(qbs_2023_final) %in% c("aimed_passes", "avg_depth_of_target", "btt_rate", "declined_penalties", "def_gen_pressures", "dropbacks", "drops", "first_downs", "hit_as_threw", "penalties", "passing_snaps", "big_time_throws", "franchise_id", "spikes"))]
+
+```
+
+```{r}
+# remove "$" and commas in average salary and convert to numeric
+qbs_2023_final$AVG_2023_CONTRACT_SALARY <- as.numeric(gsub("[^0-9.]", "", qbs_2023_final$AVG_2023_CONTRACT_SALARY))
+
+# remove "$" and commas in cap hit and convert to numeric
+qbs_2023_final$CAP_HIT_2023 <- as.numeric(gsub("[^0-9.]", "", qbs_2023_final$CAP_HIT_2023))
+
+```
+
+
+
+```{r}
+# Convert column names to lowercase
+colnames(qbs_2023_final) <- tolower(colnames(qbs_2023_final))
+
+# Make "qbr_total" column name uppercase "QBR"
+colnames(qbs_2023_final)[colnames(qbs_2023_final) == "qbr_total"] <- "QBR"
+
+```
+
+
+
+```{r}
+qbs_2023_final_clean <- qbs_2023_final[ ,c("qb", "age", "cap_hit_rank", "cap_hit_2023", "avg_2023_contract_salary", "QBR", "avg_epa", "total_epa", "grades_offense", "season", "games_started", "team", "qb_plays", "int", "td", "passing_yards", "sacks.x", "yards_p_att", "td_rate", "int_rate", "comp_pct", "adot", "cpoe", "succsess_rate", "attempts", "avg_time_to_throw", "drop_rate", "grades_pass", "grades_run", "pressure_to_sack_rate") ]
+
+qbs_2023_final_clean$vibes_reference <- (100*qbs_2023_final_clean$td_rate)+(100-(100*qbs_2023_final_clean$int_rate))+(100-qbs_2023_final_clean$pressure_to_sack_rate)+(0.1*qbs_2023_final_clean$grades_run)+(qbs_2023_final_clean$yards_p_att)
+```
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+```{r}
+# compare vs consensus rankings
+consensus$vibes <- (0.5*consensus$grades_offense)+(0.55*consensus$QBR)+(30*consensus$avg_epa)
+qbs_2023_final_clean$vibes <- (0.5*qbs_2023_final_clean$grades_offense)+(0.55*qbs_2023_final_clean$QBR)+(30*qbs_2023_final_clean$avg_epa)
+
+
+g=lm(formula=rank_points~vibes, data = consensus)
+g
+plot(consensus$vibes, consensus$rank_points,xlab="QB Performance Metric ",ylab="Consensus QB Rankings")
+abline(g,col="red")
+summary(g)
+```
+
+
+```{r}
+# check histogram for approx. normal distribution
+hist(qbs_2023_final_clean$vibes)
+
+# create percentile metric
+qbs_2023_final_clean$performance_percentile <- rank(qbs_2023_final_clean$vibes) / length(qbs_2023_final_clean$vibes) * 100
+
+# create z-score metric
+qbs_2023_final_clean <- transform(qbs_2023_final_clean, performance_z_score = scale(vibes, center = TRUE, scale = TRUE))
+
+```
+
+
+
+```{r message=FALSE, warning=FALSE}
+library(ggplot2)
+library(plotly)
+library(gridExtra)
+library(leaps)
+library(psych)
+library(NbClust)
+library(sqldf)
+```
+
+
+
+
+```{r}
+# take contract cap hit as a percent of the salary cap
+qbs_2023_final_clean$contract_percent_cap <- qbs_2023_final_clean$cap_hit_2023 / 224800000
+
+# create contract adjusted value
+
+qbs_2023_final_clean$contract_adj_value <- ((qbs_2023_final_clean$vibes)^100 / qbs_2023_final_clean$contract_percent_cap ) / 90^100
+```
+
+```{r}
+# check distribution
+hist(qbs_2023_final_clean$contract_adj_value)
+```
+
+```{r}
+qbs_2023_final_clean$CAV_percentile <- rank(qbs_2023_final_clean$contract_adj_value) / length(qbs_2023_final_clean$contract_adj_value) * 100
+```
+
+
+```{r}
+sorted_df <- qbs_2023_final_clean[order(-qbs_2023_final_clean$CAV_percentile), ]
+
+# Create a bar plot with rotated x-axis labels
+ggplot(sorted_df, aes(x = reorder(qb, -CAV_percentile), y = CAV_percentile)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +
+  labs(title = "Contract Adjusted Value Percentile Rank by QB",
+       x = "QB", y = "Percentile Rank") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+
+
+
+```{r}
+# scale variables to compare our performance metric to a qb's salary cap hit
+qbs_2023_final_clean$qb_performance_scaled <- qbs_2023_final_clean$vibes/range(qbs_2023_final_clean$vibes)[2]
+
+# cap hit scaled 
+qbs_2023_final_clean$cap_hit_scaled <- qbs_2023_final_clean$cap_hit_2023/range(qbs_2023_final_clean$cap_hit_2023)[2]
+```
+
+
+
+```{r}
+# determine the best number of clusters among indices
+hca.fit <- NbClust(data = qbs_2023_final_clean[,c('qb_performance_scaled', 'cap_hit_scaled')],
+				distance = "euclidean", 
+				method = "ward.D",
+				index="all")
+```
+
+```{r}
+#this code chunk gives us our distance matrix
+d.matrix <- dist(x= qbs_2023_final_clean[,c('qb_performance_scaled', 'cap_hit_scaled')], method="euclidean")
+#d.matrix
+```
+
+```{r}
+#This chunk fits our model!
+hclust.fit <- hclust(d=d.matrix, method="ward.D")
+#hclust.fit
+```
+
+```{r}
+#this chunk assigns 4 clusters (c1 thru c4)
+qbs_2023_final_clean$mem3 <- cutree(hclust.fit, k=4)
+
+c1mean <- c(mean(qbs_2023_final_clean$qb_performance_scaled[qbs_2023_final_clean$mem3==1]),
+			mean(qbs_2023_final_clean$cap_hit_scaled[qbs_2023_final_clean$mem3==1])
+			)
+
+c2mean <- c(mean(qbs_2023_final_clean$qb_performance_scaled[qbs_2023_final_clean$mem3==2]),
+			mean(qbs_2023_final_clean$cap_hit_scaled[qbs_2023_final_clean$mem3==2])
+			)
+
+c3mean <- c(mean(qbs_2023_final_clean$qb_performance_scaled[qbs_2023_final_clean$mem3==3]),
+			mean(qbs_2023_final_clean$cap_hit_scaled[qbs_2023_final_clean$mem3==3])
+			)
+
+c4mean <- c(mean(qbs_2023_final_clean$qb_performance_scaled[qbs_2023_final_clean$mem3==4]),
+			mean(qbs_2023_final_clean$cap_hit_scaled[qbs_2023_final_clean$mem3==4])
+			)
+
+qb_centroids <- rbind(c1mean, c2mean, c3mean, c4mean)
+qb_centroids
+```
+
+
+```{r}
+kmeans.fit <- kmeans(x=qbs_2023_final_clean[ ,c('qb_performance_scaled', 'cap_hit_scaled')], 
+					centers=qb_centroids)
+
+```
+
+
+```{r}
+# Assign the clusters and graph it!
+qbs_2023_final_clean$kmem3 <- factor(kmeans.fit$cluster, labels = c('Duds', 'Budget Ballers', 'Expensive Excellence', 'Middle Class'))
+
+
+ggplotly(ggplot(qbs_2023_final_clean, aes(x=contract_percent_cap, y=performance_z_score, col = kmem3, text = qb)) + geom_point() + labs(x= "Percent Cap Hit", y = "QB Performance Z-Score",title ='2023 NFL QB Clusters for Performance & Salary') + scale_color_manual(values=c("red", "seagreen3","dodgerblue", "purple"), name = "Clusters")) 
+
+```
+
+
+
+
+```{r}
+# read historic qbs csv
+
+historic <- read.csv('historic_qb.csv')
+
+# performance stat with regular season pff grade
+historic$vibes <- (0.5*historic$reg_pff_grade)+(0.55*historic$qbr_total)+(30*historic$avg_epa)
+
+# performance stat with postseason pff grade
+historic$playoff_vibes <- (0.5*historic$playoff_pff_grade)+(0.55*historic$qbr_total)+(30*historic$avg_epa)
+```
+
+```{r}
+# check for normal distribution
+
+hist(historic$vibes)
+hist(historic$playoff_vibes)
+
+```
+
+```{r}
+# not a normal distribution
+
+# create z-score column for regular season performance
+historic <- transform(historic, performance_z_score = scale(vibes, center = TRUE, scale = TRUE))
+
+# create z-score column for playoff performance
+historic <- transform(historic, playoff_performance_z_score = scale(playoff_vibes, center = TRUE, scale = TRUE))
+```
+
+
+```{r}
+# scale variables
+
+# scale performance (vibes)
+historic$qb_performance_scaled <- historic$vibes/range(historic$vibes)[2]
+
+# scale performance (playoff vibes)
+historic$qb_playoff_performance_scaled <- historic$vibes/range(historic$vibes)[2]
+
+# cap hit as a percent of the max between spending and salary cap scaled 
+historic$cap_hit_scaled <- historic$cap_hit_percent_higher/range(historic$cap_hit_percent_higher)[2]
+
+```
+
+
+
+```{r}
+hca.fit <- NbClust(data = historic[,c('qb_performance_scaled', 'cap_hit_scaled')],
+				distance = "euclidean", 
+				method = "ward.D",
+				index="all")
+```
+
+```{r}
+#this code chunk gives us our distance matrix
+d.matrix <- dist(x= historic[,c('qb_performance_scaled', 'cap_hit_scaled')], method="euclidean")
+#d.matrix
+```
+
+```{r}
+#This chunk fits our model!
+hclust.fit <- hclust(d=d.matrix, method="ward.D")
+#hclust.fit
+```
+
+```{r}
+#this chunk assigns clusters!
+historic$mem3 <- cutree(hclust.fit, k=4)
+
+c1mean <- c(mean(historic$qb_performance_scaled[historic$mem3==1]),
+			mean(historic$cap_hit_scaled[historic$mem3==1])
+			)
+
+c2mean <- c(mean(historic$qb_performance_scaled[historic$mem3==2]),
+			mean(historic$cap_hit_scaled[historic$mem3==2])
+			)
+
+# get rid of this cluster and go down to two clusters?
+c3mean <- c(mean(historic$qb_performance_scaled[historic$mem3==3]),
+			mean(historic$cap_hit_scaled[historic$mem3==3])
+			)
+
+# get rid of this cluster and go down to two clusters?
+c4mean <- c(mean(historic$qb_performance_scaled[historic$mem3==4]),
+			mean(historic$cap_hit_scaled[historic$mem3==4])
+			)
+
+qb_centroids <- rbind(c1mean, c2mean, c3mean, c4mean)
+qb_centroids
+```
+
+
+```{r}
+kmeans.fit <- kmeans(x=historic[ ,c('qb_performance_scaled', 'cap_hit_scaled')], 
+					centers=qb_centroids)
+
+```
+
+
+
+```{r}
+# Assign the clusters and graph it!
+historic$kmem3 <- factor(kmeans.fit$cluster, labels = c('Expensive Excellence', 'Budget Ballers', 'Middle Class', 'Duds'))
+
+
+ggplotly(ggplot(historic, aes(x=cap_hit_percent_higher, y=performance_z_score, col = kmem3, text = paste("QB:", qb, "<br>Season:", season, "<br>Result:", result))) + geom_point() + labs(x= "Percent Cap Hit", y = "QB Performance Z-Score",title ='Historical Super Bowl QB Performance & Salary') + scale_color_manual(values=c("dodgerblue", "seagreen3","purple", "red"), name = "Clusters")) 
+
+```
+
+
+
+```{r}
+# Load necessary packages
+library(ggplot2)
+
+# Create scatter plot
+ggplot() +
+  geom_point(data = historic, aes(x = cap_hit_percent_higher, y = vibes, color = "Historical"), alpha = 0.5) +
+  geom_point(data = qbs_2023_final_clean, aes(x = contract_percent_cap, y = vibes, color = "2023"), alpha = 0.5) +
+  geom_hline(yintercept = 80, color = "black") +
+  labs(x = "Percent of Salary Cap", y = "QB Performance", title = "Comparison of QB Performance and Salary Cap") +
+  scale_color_manual(values = c("Historical" = "blue", "2023" = "red"), name = "QB Group",
+                     labels = c("2023 Season", "Historically made Super Bowl")) + # Add legend
+  theme_minimal()
+
+```
+
+
+
+
+
+
+
+
+
+
+
