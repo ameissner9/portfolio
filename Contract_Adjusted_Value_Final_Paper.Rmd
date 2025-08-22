@@ -1,6 +1,6 @@
 ---
 title: "Final Contract Adjusted Value Paper"
-author: "Ian Perez, Sophia Rojas, Ava Meissner, & Sam Swift"
+author: "Ava Meissner, Ian Perez, Sophia Rojas, & Sam Swift"
 date: "2024-05-03"
 output: html_document
 ---
