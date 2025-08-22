@@ -9,7 +9,7 @@ This page showcases selected work where I apply data science techniques to uncov
 ## Featured Projects
 
 ### Spotify Hit Song Analysis
-**Tools:** R, dplyr, ggplot2, glmnet, randomForest, RMarkdown  
+**Tools:** R, dplyr, ggplot2, glmnet, randomForest, decision trees, LASSO, ridge, RMarkdown  
 Explored what drives a song’s popularity on Spotify using a dataset of top-charting tracks. Conducted statistical modeling and machine learning to predict streaming success and uncover key audio and chart features associated with high stream counts.
 
 - Built regression and tree-based models to predict stream counts  
@@ -20,7 +20,7 @@ Explored what drives a song’s popularity on Spotify using a dataset of top-cha
 ---
 
 ### Quarterback Contract Value Adjustment
-**Tools:** R, dplyr, ggplot2, RMarkdown  
+**Tools:** R, dplyr, ggplot2, hierarchial and k-means clustering, RMarkdown  
 Analyzed NFL quarterback performance and salary data to develop an adjusted contract value metric. The project focused on quantifying the value teams receive relative to cap cost, using efficiency metrics and player statistics.
 
 - Created a custom metric to evaluate contract value vs. on-field output  
@@ -33,7 +33,7 @@ Analyzed NFL quarterback performance and salary data to develop an adjusted cont
 ## Skills & Tools
 
 **Languages:** Python, R, SQL  
-**Data Analysis:** Statistical modeling, regression, LASSO, Ridge, subset selection, hypothesis testing  
+**Data Analysis:** Statistical modeling, Linear/logistic regression, LASSO/Ridge, tree-based models, hypothesis testing, cross-validation, subset selection 
 **Visualization:** ggplot2, Tableau, matplotlib  
 **Data Handling:** ETL processes, data wrangling, database management  
 **Reporting:** RMarkdown, Jupyter Notebooks, Excel
