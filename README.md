@@ -1,46 +1,63 @@
 # Ava Meissner
 
-Welcome to my GitHub. I'm a data analyst with a passion for using data to solve real-world problems. My projects combine rigorous statistical analysis with clear, actionable insights—ranging from sports analytics to music data modeling.
+Welcome to my GitHub! I'm a data analyst passionate about using data to solve real-world problems. My projects combine rigorous statistical analysis with actionable insights—ranging from sports analytics to user behavior and music data modeling.
 
-This page showcases selected work where I apply data science techniques to uncover meaningful patterns, build predictive models, and communicate results effectively.
+This page highlights selected work where I apply data science techniques to uncover meaningful patterns, build predictive models, and communicate results effectively.
 
 ---
 
 ## Featured Projects
 
-### Spotify Hit Song Analysis
+### 🏈 NFL Performance & Weather Analysis  
+**Tools:** Python, pandas, SQL, PostgreSQL, psycopg2  
+Built a full ETL pipeline and relational database to analyze NFL game data (2019–2022). Explored quarterback performance, defensive scoring brackets, and kicking accuracy across weather conditions.
+
+- Designed and normalized PostgreSQL schema (game, weather, QB, defense, kicking)  
+- Created reusable Python functions for querying and database operations  
+- Conducted SQL-based analyses (e.g., Mahomes' average yards, defense trends by point range)
+
+---
+
+### 🎵 Spotify Hit Song Analysis  
 **Tools:** R, dplyr, ggplot2, glmnet, randomForest, decision trees, LASSO, ridge, RMarkdown  
-Explored what drives a song’s popularity on Spotify using a dataset of top-charting tracks. Conducted statistical modeling and machine learning to predict streaming success and uncover key audio and chart features associated with high stream counts.
+Explored what drives a song’s popularity on Spotify using a dataset of top-charting tracks. Used statistical modeling and ML to predict streaming success and uncover key features.
 
 - Built regression and tree-based models to predict stream counts  
 - Identified danceability, speechiness, and release timing as key factors  
-- Cleaned, visualized, and presented results in a reproducible RMarkdown report
-
-
----
-
-### Quarterback Contract Value Adjustment
-**Tools:** R, dplyr, ggplot2, hierarchial and k-means clustering, RMarkdown  
-Analyzed NFL quarterback performance and salary data to develop an adjusted contract value metric. The project focused on quantifying the value teams receive relative to cap cost, using efficiency metrics and player statistics.
-
-- Created a custom metric to evaluate contract value vs. on-field output  
-- Performed data cleaning, feature engineering, and visualization  
-- Presented findings with clear, interactive charts and contextual insights
-
+- Presented results in a reproducible RMarkdown report  
 
 ---
 
-## Skills & Tools
+### 🧪 Online Learning User Experience (Private Data)  
+**Tools:** R, dplyr, lme4, tidyr, ANOVA, mixed-effects models  
+Analyzed engagement and performance data from multiple colleges to understand how students interact with digital course materials.
+
+- Built mixed-effects and linear models to assess impact of time on page, task repetition, and motivational constructs  
+- Applied ANOVA and Tukey HSD to identify trends across institutions and chapters  
+- Delivered data-driven recommendations to improve chapter review questions and platform usability  
+*Note: Project not published due to data sharing restrictions.*
+
+---
+
+## ⚙️ Skills & Tools
 
 **Languages:** Python, R, SQL  
-**Data Analysis:** Statistical modeling, Linear/logistic regression, LASSO/Ridge, tree-based models, hypothesis testing, cross-validation, subset selection 
-**Visualization:** ggplot2, Tableau, matplotlib  
-**Data Handling:** ETL processes, data wrangling, database management  
+**Data Analysis:** Regression, clustering, mixed-effects models, LASSO/Ridge, tree-based models, hypothesis testing  
+**Visualization:** ggplot2, matplotlib, Tableau  
+**Data Handling:** ETL, data wrangling, relational databases, API integration  
 **Reporting:** RMarkdown, Jupyter Notebooks, Excel
 
 ---
 
-## About Me
+## 👋 About Me
 
-I enjoy tackling open-ended questions with data and building tools that make insights accessible to broader audiences. Whether in sports, music, or economics, my work focuses on creating models and visualizations that drive understanding and decision-making.
+I enjoy tackling open-ended questions with data and creating tools that make insights accessible. Whether in sports, music, or education, my work focuses on building models and visualizations that drive clarity and smarter decision-making.
+
+---
+
+## ✅ Notes
+
+- For datasets unavailable due to licensing or privacy, only summaries are included.  
+- Feel free to connect with me or explore the repos to see the full code and methodology.
+
 
